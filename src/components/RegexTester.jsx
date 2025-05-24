@@ -1,197 +1,186 @@
-import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+
+const EXAMPLES = [
+  { label: "Match digits", pattern: "\\d+" },
+  { label: "Match email", pattern: "[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}" },
+  { label: "Match words", pattern: "\\b\\w+\\b" },
+  { label: "Match whitespace", pattern: "\\s+" },
+];
 
 export default function RegexTester() {
-  const examples = [
-    { label: 'Email', pattern: '[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}' },
-    { label: 'URL', pattern: 'https?://[^\\s/$.?#].[^\\s]*' },
-    { label: 'US Phone', pattern: '\\(\\d{3}\\) \\d{3}-\\d{4}' },
-    { label: 'Date YYYY-MM-DD', pattern: '\\d{4}-\\d{2}-\\d{2}' },
-  ];
+  const navigate = useNavigate();
 
-  const [pattern, setPattern] = useState('');
-  const [text, setText] = useState('');
+  const [regexInput, setRegexInput] = useState("");
+  const [testText, setTestText] = useState("");
   const [matches, setMatches] = useState([]);
-  const [error, setError] = useState('');
-  const [customRegexes, setCustomRegexes] = useState(() => {
-    try {
-      return JSON.parse(localStorage.getItem('customRegexes')) || [];
-    } catch {
-      return [];
-    }
-  });
+  const [error, setError] = useState(null);
+  const [savedRegexes, setSavedRegexes] = useState([]);
 
   useEffect(() => {
-    if (!pattern) {
+    const saved = localStorage.getItem("savedRegexes");
+    if (saved) setSavedRegexes(JSON.parse(saved));
+  }, []);
+
+  useEffect(() => {
+    if (!regexInput) {
       setMatches([]);
-      setError('');
+      setError(null);
       return;
     }
+
     try {
-      const regex = new RegExp(pattern, 'g');
-      const found = [];
-      let match;
-      while ((match = regex.exec(text)) !== null) {
-        found.push({ index: match.index, length: match[0].length });
-        if (match.index === regex.lastIndex) {
-          regex.lastIndex++;
-        }
-      }
+      setError(null);
+      const re = new RegExp(regexInput, "g");
+      const found = [...testText.matchAll(re)];
       setMatches(found);
-      setError('');
-    } catch (e) {
-      setError(e.message);
+    } catch {
+      setError("Invalid regex pattern");
       setMatches([]);
     }
-  }, [pattern, text]);
+  }, [regexInput, testText]);
 
-  function getHighlightedText() {
-    if (!matches.length) return text;
+  const saveCurrentRegex = () => {
+    if (!regexInput.trim()) return;
+    if (savedRegexes.includes(regexInput)) return;
 
-    const parts = [];
-    let lastIndex = 0;
-    matches.forEach(({ index, length }, i) => {
-      parts.push(text.substring(lastIndex, index));
-      parts.push(
-        <mark key={i} style={{ backgroundColor: 'yellow' }}>
-          {text.substr(index, length)}
-        </mark>
-      );
-      lastIndex = index + length;
-    });
-    parts.push(text.substring(lastIndex));
-    return parts;
-  }
-
-  const copyToClipboard = () => {
-    navigator.clipboard.writeText(text).then(() => alert('Text copied!'));
+    const newSaved = [...savedRegexes, regexInput];
+    setSavedRegexes(newSaved);
+    localStorage.setItem("savedRegexes", JSON.stringify(newSaved));
   };
 
-  const saveCustomRegex = () => {
-    if (pattern && !customRegexes.includes(pattern)) {
-      const newList = [...customRegexes, pattern];
-      setCustomRegexes(newList);
-      localStorage.setItem('customRegexes', JSON.stringify(newList));
-      alert('Saved regex!');
+  const loadSavedRegex = (pattern) => {
+    setRegexInput(pattern);
+  };
+
+  const copyMatches = () => {
+    if (!matches.length) return;
+    const textToCopy = matches.map((m) => m[0]).join("\n");
+    navigator.clipboard.writeText(textToCopy);
+    window.M.toast({ html: "Matches copied to clipboard!", classes: "green" });
+  };
+
+  const getHighlightedText = () => {
+    if (!regexInput) return testText;
+
+    try {
+      const re = new RegExp(regexInput, "g");
+      const parts = [];
+      let lastIndex = 0;
+
+      for (const match of testText.matchAll(re)) {
+        const { index } = match;
+        if (index === undefined) break;
+
+        parts.push(testText.slice(lastIndex, index));
+        parts.push(
+          <span key={index} className="yellow lighten-4">
+            {testText.slice(index, index + match[0].length)}
+          </span>
+        );
+        lastIndex = index + match[0].length;
+      }
+      parts.push(testText.slice(lastIndex));
+      return parts;
+    } catch {
+      return testText;
     }
-  };
-
-  const removeCustomRegex = (p) => {
-    const newList = customRegexes.filter(r => r !== p);
-    setCustomRegexes(newList);
-    localStorage.setItem('customRegexes', JSON.stringify(newList));
   };
 
   return (
-    <div style={{ padding: 20 }}>
-      <h1>Regex Tester</h1>
+    <div className="container" style={{ marginTop: "2rem" }}>
+      <button className="btn blue lighten-1" onClick={() => navigate("/")}>
+        ← Back
+      </button>
 
-      <label>
-        Select Example Regex:{' '}
+      <h3 className="center-align" style={{ marginTop: "1rem" }}>
+        Regex Tester
+      </h3>
+
+      <div className="input-field">
         <select
-          onChange={e => setPattern(e.target.value)}
-          value={pattern}
-          style={{ minWidth: 300 }}
+          className="browser-default"
+          value={regexInput}
+          onChange={(e) => setRegexInput(e.target.value)}
+          aria-label="Select example regex"
         >
-          <option value="">--Select an example--</option>
-          {examples.map((ex, i) => (
-            <option key={i} value={ex.pattern}>
-              {ex.label}
+          <option value="" disabled>
+            Choose example regex
+          </option>
+          {EXAMPLES.map(({ label, pattern }, i) => (
+            <option key={i} value={pattern}>
+              {label} — <code>{pattern}</code>
             </option>
           ))}
-          {customRegexes.map((r, i) => (
-            <option key={`custom-${i}`} value={r}>
-              Custom: {r}
+          {savedRegexes.length > 0 && <option disabled>──────────────</option>}
+          {savedRegexes.map((pattern, i) => (
+            <option key={`saved-${i}`} value={pattern}>
+              Saved: {pattern}
             </option>
           ))}
         </select>
-      </label>
-
-      <div style={{ marginTop: 10 }}>
-        <label>
-          Regex Pattern:{' '}
-          <input
-            type="text"
-            value={pattern}
-            onChange={e => setPattern(e.target.value)}
-            placeholder="Enter regex pattern"
-            style={{ width: '100%', fontSize: 16, padding: '6px 8px' }}
-          />
-        </label>
-        <button onClick={saveCustomRegex} disabled={!pattern || customRegexes.includes(pattern)} style={{ marginLeft: 8 }}>
-          Save Regex
-        </button>
       </div>
 
-      <div style={{ marginTop: 10 }}>
-        <label>
-          Text to Test:
-          <textarea
-            value={text}
-            onChange={e => setText(e.target.value)}
-            rows={6}
-            style={{ width: '100%', fontSize: 16, padding: 8 }}
-            placeholder="Enter text to test against your regex"
-          />
-        </label>
+      <div className="input-field">
+        <input
+          id="regexInput"
+          type="text"
+          className="validate"
+          value={regexInput}
+          onChange={(e) => setRegexInput(e.target.value)}
+          placeholder="Or enter custom regex"
+        />
       </div>
 
-      {error && (
-        <div style={{ color: 'red', marginTop: 10 }}>
-          <b>Regex Error:</b> {error}
-        </div>
-      )}
+      <div className="input-field">
+        <textarea
+          id="testText"
+          className="materialize-textarea"
+          value={testText}
+          onChange={(e) => setTestText(e.target.value)}
+          placeholder="Enter text to test"
+        ></textarea>
+      </div>
 
-      <div style={{ marginTop: 20 }}>
-        <h2>Matches: {matches.length}</h2>
-        <div
-          style={{
-            whiteSpace: 'pre-wrap',
-            backgroundColor: '#f0f0f0',
-            padding: 10,
-            minHeight: 80,
-            fontFamily: 'monospace',
-          }}
-        >
+      {error && <p className="red-text">{error}</p>}
+
+      <div className="section">
+        <h5>
+          Matches Found: {matches.length}{" "}
+          <button
+            className="btn-small waves-effect waves-light"
+            onClick={copyMatches}
+            disabled={!matches.length}
+            style={{ marginLeft: "1rem" }}
+            title="Copy matches to clipboard"
+          >
+            Copy Matches
+          </button>
+
+          <button
+            className="btn-small waves-effect waves-light"
+            onClick={saveCurrentRegex}
+            disabled={!regexInput.trim()}
+            style={{ marginLeft: "1rem" }}
+            title="Save this regex for later"
+          >
+            Save Regex
+          </button>
+        </h5>
+        <ul className="collection">
+          {matches.map((m, i) => (
+            <li key={i} className="collection-item">
+              {m[0]} at index {m.index}
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      <div className="section">
+        <h5>Highlighted Text:</h5>
+        <p style={{ whiteSpace: "pre-wrap", wordWrap: "break-word" }}>
           {getHighlightedText()}
-        </div>
-        <button onClick={copyToClipboard} style={{ marginTop: 8 }}>
-          Copy Text to Clipboard
-        </button>
-      </div>
-
-      {customRegexes.length > 0 && (
-        <div style={{ marginTop: 30 }}>
-          <h3>Saved Custom Regexes</h3>
-          <ul>
-            {customRegexes.map((r, i) => (
-              <li key={i}>
-                <code>{r}</code>{' '}
-                <button onClick={() => { setPattern(r); }} style={{ marginRight: 6 }}>
-                  Use
-                </button>
-                <button onClick={() => removeCustomRegex(r)}>Remove</button>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {/* Add Back to Home link here */}
-      <div style={{ marginTop: 30 }}>
-        <Link
-          to="/"
-          style={{
-            padding: '10px 20px',
-            backgroundColor: '#555',
-            color: 'white',
-            textDecoration: 'none',
-            borderRadius: 5,
-            display: 'inline-block',
-          }}
-        >
-          ← Back to Home
-        </Link>
+        </p>
       </div>
     </div>
   );

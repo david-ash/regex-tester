@@ -1,16 +1,17 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import Home from './components/Home';
-import Learn from './components/Learn';
-import RegexTester from './components/RegexTester';
+import React from "react";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import Home from "./components/Home.jsx";
+import Learn from "./components/Learn.jsx";
+import RegexTester from "./components/RegexTester.jsx";
 
 export default function App() {
   return (
-    <Router>
+    <BrowserRouter>
       <Routes>
         <Route path="/" element={<Home />} />
-        <Route path="/tester" element={<RegexTester />} />
         <Route path="/learn" element={<Learn />} />
+        <Route path="/tester" element={<RegexTester />} />
       </Routes>
-    </Router>
+    </BrowserRouter>
   );
 }
