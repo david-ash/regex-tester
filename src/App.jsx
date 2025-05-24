@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import './App.css';
 
 function App() {
@@ -6,7 +6,11 @@ function App() {
   const [flags, setFlags] = useState('g');
   const [text, setText] = useState('');
   const [error, setError] = useState('');
+  const [matchCount, setMatchCount] = useState(0);
+  const [highlightedHTML, setHighlightedHTML] = useState('');
+  const [savedRegexes, setSavedRegexes] = useState([]);
 
+  // Example presets
   const examples = [
     {
       label: 'Email Finder',
@@ -39,23 +43,57 @@ function App() {
       text: 'Today is 24/05/2025, tomorrow is 25/05/2025.',
     }
   ];
+  // Load saved regexes on mount
+  useEffect(() => {
+    const saved = JSON.parse(localStorage.getItem('myRegexes')) || [];
+    setSavedRegexes(saved);
+  }, []);
 
-  const highlightMatches = (text) => {
+  // Update highlighted output, match count, error on pattern/flags/text change
+  useEffect(() => {
+    if (!pattern) {
+      setHighlightedHTML(text);
+      setMatchCount(0);
+      setError('');
+      return;
+    }
+
     try {
       const regex = new RegExp(pattern, flags);
-      return text.replace(regex, (match) => `<mark>${match}</mark>`);
+      const matches = text.match(regex);
+      setMatchCount(matches ? matches.length : 0);
+      const highlighted = text.replace(regex, (match) => `<mark>${match}</mark>`);
+      setHighlightedHTML(highlighted);
+      setError('');
     } catch (e) {
       setError(e.message);
-      return text;
+      setMatchCount(0);
+      setHighlightedHTML(text);
     }
+  }, [pattern, flags, text]);
+
+  // Save current regex to localStorage
+  const handleSave = () => {
+    const name = prompt('Enter a name for this regex:');
+    if (!name) return;
+    const entry = { name, pattern, flags };
+    const updated = [...savedRegexes, entry];
+    localStorage.setItem('myRegexes', JSON.stringify(updated));
+    setSavedRegexes(updated);
   };
 
-  const highlightedHTML = highlightMatches(text);
+  // Copy raw text to clipboard
+  const handleCopy = () => {
+    navigator.clipboard.writeText(text)
+      .then(() => alert('Output copied!'))
+      .catch(() => alert('Failed to copy.'));
+  };
 
   return (
     <div className="container">
       <h1>Regex Tester</h1>
 
+      {/* Example Presets Dropdown */}
       <select
         onChange={(e) => {
           const selected = examples.find((ex) => ex.label === e.target.value);
@@ -68,9 +106,27 @@ function App() {
         }}
         defaultValue=""
       >
-        <option value="" disabled>Select an example...</option>
+        <option value="" disabled>Select a preset example...</option>
         {examples.map((ex, i) => (
           <option key={i} value={ex.label}>{ex.label}</option>
+        ))}
+      </select>
+
+      {/* Saved Regexes Dropdown */}
+      <select
+        onChange={(e) => {
+          const selected = savedRegexes.find((ex) => ex.name === e.target.value);
+          if (selected) {
+            setPattern(selected.pattern);
+            setFlags(selected.flags);
+            setError('');
+          }
+        }}
+        defaultValue=""
+      >
+        <option value="" disabled>Select a saved regex...</option>
+        {savedRegexes.map((ex, i) => (
+          <option key={i} value={ex.name}>{ex.name}</option>
         ))}
       </select>
 
@@ -87,14 +143,17 @@ function App() {
       <textarea
         placeholder="Enter text here..."
         value={text}
-        onChange={(e) => {
-          setText(e.target.value);
-          setError('');
-        }}
+        onChange={(e) => setText(e.target.value)}
         rows={8}
       />
 
+      <div className="buttons">
+        <button onClick={handleSave}>💾 Save Regex</button>
+        <button onClick={handleCopy}>📋 Copy Output</button>
+      </div>
+
       {error && <p className="error">{error}</p>}
+      {!error && <p>🔍 Matches found: <strong>{matchCount}</strong></p>}
 
       <div className="results">
         <h3>Highlighted Output:</h3>

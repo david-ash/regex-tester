@@ -21,6 +21,26 @@ textarea {
   font-family: monospace;
 }
 
+.buttons {
+  margin-top: 1rem;
+  display: flex;
+  gap: 10px;
+}
+
+button {
+  padding: 0.5rem 1rem;
+  font-size: 1rem;
+  cursor: pointer;
+  background: #007bff;
+  color: white;
+  border: none;
+  border-radius: 5px;
+}
+
+button:hover {
+  background: #0056b3;
+}
+
 .error {
   color: red;
   margin-top: 1rem;
